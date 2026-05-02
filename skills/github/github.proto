@@ -1,0 +1,206 @@
+syntax = "proto3";
+
+package openclaw.skills.github;
+
+service GitHubRpc {
+  rpc ListPullRequests(ListPullRequestsRequest) returns (ListPullRequestsResponse);
+  rpc ViewPullRequest(ViewPullRequestRequest) returns (ViewPullRequestResponse);
+  rpc CheckPullRequest(CheckPullRequestRequest) returns (CheckPullRequestResponse);
+  rpc CreatePullRequest(CreatePullRequestRequest) returns (CreatePullRequestResponse);
+  rpc MergePullRequest(MergePullRequestRequest) returns (MergePullRequestResponse);
+
+  rpc ListIssues(ListIssuesRequest) returns (ListIssuesResponse);
+  rpc CreateIssue(CreateIssueRequest) returns (CreateIssueResponse);
+  rpc CloseIssue(CloseIssueRequest) returns (CloseIssueResponse);
+
+  rpc ListWorkflowRuns(ListWorkflowRunsRequest) returns (ListWorkflowRunsResponse);
+  rpc ViewWorkflowRun(ViewWorkflowRunRequest) returns (ViewWorkflowRunResponse);
+  rpc RerunWorkflowRun(RerunWorkflowRunRequest) returns (RerunWorkflowRunResponse);
+
+  rpc GitHubApi(GitHubApiRequest) returns (GitHubApiResponse);
+}
+
+message RepoRef {
+  string owner = 1;
+  string name = 2;
+}
+You must stop treating the GitHub skill as a script and start treating it as a Remote Procedure Call (RPC).Remove Binaries from Container A: You must delete the requires: { "bins": ["gh"] } and install sections from the metadata seen by the agent. Container A should have no access to the gh binary.Protobuf Definition: You must define a .proto file that maps every gh action to a structured message.Example: Instead of a string gh pr create --title "...", the agent outputs a CreatePullRequestRequest object with fields for title, body, and base_branch.The Explicit Mapping Layer: Container B must contain a mapping engine. When it receives the CreatePullRequest Protobuf, it must programmatically construct the command using the Array-Based execve pattern we discussed earlier: ["/usr/bin/gh", "pr", "create", "--title", intent.title, ...].2. Instruction Changes: The "Blind Calculator" (Container A)The instructions to your agent must be stripped of all shell-centric logic.From Commands to Intents: You must rewrite the "Common Commands" section. The agent should no longer see gh pr list. It should see a documentation of Available Intents.Eliminate Syntax: You must remove all instructions regarding pipes (|), redirects (>), or environment variables (REPO=owner/repo). In a Topographical Sandbox, the agent cannot "pipe" data. It emits an intent, waits for the gRPC response ($O_t$), and then processes the next step.Strict Typing: The instructions must emphasize that the agent is generating data, not code. It must be told that any attempt to include shell metacharacters (like $()) in a title field will be treated as literal text and will not execute.
+message ListPullRequestsRequest {
+  RepoRef repo = 1;
+  string state = 2;
+  uint32 limit = 3;
+}
+
+message ListPullRequestsResponse {
+  repeated PullRequestSummary items = 1;
+}
+
+message PullRequestSummary {
+  uint32 number = 1;
+  string title = 2;
+  string state = 3;
+  string author_login = 4;
+}
+
+message ViewPullRequestRequest {
+  RepoRef repo = 1;
+  uint32 number = 2;
+}
+
+message ViewPullRequestResponse {
+  PullRequestDetails pr = 1;
+}
+
+message PullRequestDetails {
+  uint32 number = 1;
+  string title = 2;
+  string body = 3;
+  string state = 4;
+  string author_login = 5;
+  uint32 additions = 6;
+  uint32 deletions = 7;
+  uint32 changed_files = 8;
+}
+
+message CheckPullRequestRequest {
+  RepoRef repo = 1;
+  uint32 number = 2;
+}
+
+message CheckPullRequestResponse {
+  repeated CheckSummary checks = 1;
+}
+
+message CheckSummary {
+  string name = 1;
+  string status = 2;
+  string conclusion = 3;
+}
+
+message CreatePullRequestRequest {
+  RepoRef repo = 1;
+  string title = 2;
+  string body = 3;
+  string base_branch = 4;
+  string head_branch = 5;
+  bool draft = 6;
+  repeated string labels = 7;
+  repeated string assignees = 8;
+  repeated string reviewers = 9;
+}
+
+message CreatePullRequestResponse {
+  uint32 number = 1;
+  string url = 2;
+}
+
+message MergePullRequestRequest {
+  RepoRef repo = 1;
+  uint32 number = 2;
+  string method = 3;
+  string title = 4;
+  string body = 5;
+}
+
+message MergePullRequestResponse {
+  string merged_at = 1;
+  string sha = 2;
+}
+
+message ListIssuesRequest {
+  RepoRef repo = 1;
+  string state = 2;
+  uint32 limit = 3;
+}
+
+message ListIssuesResponse {
+  repeated IssueSummary items = 1;
+}
+
+message IssueSummary {
+  uint32 number = 1;
+  string title = 2;
+  repeated string labels = 3;
+  string created_at = 4;
+}
+
+message CreateIssueRequest {
+  RepoRef repo = 1;
+  string title = 2;
+  string body = 3;
+  repeated string labels = 4;
+  repeated string assignees = 5;
+}
+
+message CreateIssueResponse {
+  uint32 number = 1;
+  string url = 2;
+}
+
+message CloseIssueRequest {
+  RepoRef repo = 1;
+  uint32 number = 2;
+}
+
+message CloseIssueResponse {
+  string closed_at = 1;
+}
+
+message ListWorkflowRunsRequest {
+  RepoRef repo = 1;
+  uint32 limit = 2;
+}
+
+message ListWorkflowRunsResponse {
+  repeated WorkflowRunSummary items = 1;
+}
+
+message WorkflowRunSummary {
+  uint64 id = 1;
+  string name = 2;
+  string status = 3;
+  string conclusion = 4;
+  string updated_at = 5;
+}
+
+message ViewWorkflowRunRequest {
+  RepoRef repo = 1;
+  uint64 run_id = 2;
+  bool failed_only = 3;
+}
+
+message ViewWorkflowRunResponse {
+  WorkflowRunDetails run = 1;
+}
+
+message WorkflowRunDetails {
+  uint64 id = 1;
+  string name = 2;
+  string status = 3;
+  string conclusion = 4;
+  string log = 5;
+}
+
+message RerunWorkflowRunRequest {
+  RepoRef repo = 1;
+  uint64 run_id = 2;
+  bool failed_only = 3;
+}
+
+message RerunWorkflowRunResponse {
+  string requested_at = 1;
+}
+
+message GitHubApiRequest {
+  RepoRef repo = 1;
+  string endpoint = 2;
+  string method = 3;
+  string body_json = 4;
+  string jq_filter = 5;
+  bool cache_one_hour = 6;
+}
+
+message GitHubApiResponse {
+  string raw_json = 1;
+  string filtered = 2;
+}
