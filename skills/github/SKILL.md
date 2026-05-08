@@ -1,13 +1,7 @@
 ---
 name: github
 description: "Use structured RPC intents for GitHub issues, PRs, CI/logs, comments, reviews, releases, and API queries."
-metadata:
-  {
-    "openclaw":
-      {
-        "emoji": "🐙"
-      }
-  }
+metadata: { "openclaw": { "emoji": "🐙" } }
 ---
 
 # GitHub Skill (RPC)
@@ -73,4 +67,4 @@ Container B receives the Protobuf request and maps it to a binary invocation usi
 
 ## Protobuf Definition
 
-See the RPC schema in skills/github/github.proto.
+See the RPC schema in skills/github/github_rpc.proto.
